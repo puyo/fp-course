@@ -117,7 +117,7 @@ join ffx = id =<< ffx
 -- >>> ((+10) >>= (*)) 7
 -- 119
 (>>=) :: Monad f => f a -> (a -> f b) -> f b
-(>>=) = flip (=<<)
+(>>=) x f = join (f <$> x)
 
 infixl 1 >>=
 
