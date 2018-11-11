@@ -102,8 +102,8 @@ getFile path = ((,) path) <$> readFile path
 getFiles :: List FilePath -> IO (List (FilePath, Chars))
 getFiles paths = foldRight folder (pure Nil) paths
   where
-    folder x acc = (getFile x) `fconcat` acc
-    fconcat = lift2 (:.)
+    folder x acc = (getFile x) `fcons` acc
+    fcons = lift2 (:.)
 
 -- Given a file name, read it and for each line in that file, read and print contents of each.
 -- Use @getFiles@ and @printFiles@.
