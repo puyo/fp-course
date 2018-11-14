@@ -92,7 +92,7 @@ printFiles files = foldRight folder (pure ()) files
   where
     folder (path, chars) acc =
       printFile path chars
-      >>= \ _ -> acc
+      >>= \_ -> acc
 
 -- Given a file name, return (file name and file contents).
 -- Use @readFile@.
@@ -112,8 +112,8 @@ getFiles paths = foldRight folder (pure Nil) paths
 run :: FilePath -> IO ()
 run indexFilePath =
   readFile indexFilePath
-  >>= \ chars -> getFiles (lines chars)
-  >>= \ listOfFilePathAndChars -> printFiles listOfFilePathAndChars
+  >>= \chars -> getFiles (lines chars)
+  >>= printFiles
 
 -- /Tip:/ use @getArgs@ and @run@
 main :: IO ()
