@@ -39,7 +39,7 @@ Problem --
 
 Consideration --
   Try to avoid repetition. Factor out any common expressions.
-  
+
 Example --
 Given file files.txt, containing:
   a.txt
@@ -61,7 +61,7 @@ To test this module, load ghci in the root of the project directory, and do
 Example output:
 
 $ ghci
-GHCi, version ... 
+GHCi, version ...
 Loading package...
 Loading ...
 [ 1 of 28] Compiling (etc...
@@ -81,54 +81,52 @@ the contents of c
 
 -- Given the file name, and file contents, print them.
 -- Use @putStrLn@.
-printFile ::
-  FilePath
-  -> Chars
-  -> IO ()
-printFile =
-  error "todo: Course.FileIO#printFile"
+printFile :: FilePath -> Chars -> IO ()
+printFile path contents =
+    putStrLn $ "============ " ++ path ++ "\n" ++ contents
 
 -- Given a list of (file name and file contents), print each.
 -- Use @printFile@.
-printFiles ::
-  List (FilePath, Chars)
-  -> IO ()
-printFiles =
-  error "todo: Course.FileIO#printFiles"
+printFiles :: List (FilePath, Chars) -> IO ()
+printFiles files = execIoNoResult printTuple files
+  where
+    printTuple (path, chars) = printFile path chars
 
 -- Given a file name, return (file name and file contents).
 -- Use @readFile@.
-getFile ::
-  FilePath
-  -> IO (FilePath, Chars)
-getFile =
-  error "todo: Course.FileIO#getFile"
+getFile :: FilePath -> IO (FilePath, Chars)
+getFile path = ((,) path) <$> readFile path
 
 -- Given a list of file names, return list of (file name and file contents).
 -- Use @getFile@.
-getFiles ::
-  List FilePath
-  -> IO (List (FilePath, Chars))
-getFiles =
-  error "todo: Course.FileIO#getFiles"
+getFiles :: List FilePath -> IO (List (FilePath, Chars))
+getFiles paths = execIo getFile paths
 
 -- Given a file name, read it and for each line in that file, read and print contents of each.
 -- Use @getFiles@ and @printFiles@.
-run ::
-  FilePath
-  -> IO ()
-run =
-  error "todo: Course.FileIO#run"
+run :: FilePath -> IO ()
+run indexFilePath =
+  readFile indexFilePath
+  >>= \chars -> getFiles (lines chars)
+  >>= printFiles
 
 -- /Tip:/ use @getArgs@ and @run@
-main ::
-  IO ()
+main :: IO ()
 main =
-  error "todo: Course.FileIO#main"
+  getArgs
+  >>= \args -> execIoNoResult run args
 
-----
 
 -- Was there was some repetition in our solution?
 -- ? `sequence . (<$>)`
 -- ? `void . sequence . (<$>)`
 -- Factor it out.
+
+-- Run a bunch of (t -> IO ()) on a List (t), reduce to IO () result
+execIoNoResult :: (t -> IO ()) -> List t -> IO ()
+execIoNoResult f xs = void $ execIo f xs
+
+-- Run a bunch of (t -> IO (a)) on a List (t), reduce to IO (List a) result
+execIo :: (t -> IO (a)) -> List t -> IO (List a)
+execIo f xs = sequence $ f <$> xs
+
