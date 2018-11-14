@@ -90,7 +90,9 @@ printFile path contents =
 printFiles :: List (FilePath, Chars) -> IO ()
 printFiles files = foldRight folder (pure ()) files
   where
-    folder fpc acc = printFile (fst fpc) (snd fpc) >>= \ _ -> acc
+    folder (path, chars) acc =
+      printFile path chars
+      >>= \ _ -> acc
 
 -- Given a file name, return (file name and file contents).
 -- Use @readFile@.
