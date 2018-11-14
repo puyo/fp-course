@@ -109,8 +109,8 @@ getFiles paths = foldRight folder (pure Nil) paths
 -- Use @getFiles@ and @printFiles@.
 run :: FilePath -> IO ()
 run indexFilePath =
-  getFile indexFilePath
-  >>= \ pathAndChars -> getFiles (lines (snd pathAndChars))
+  readFile indexFilePath
+  >>= \ chars -> getFiles (lines chars)
   >>= \ listOfFilePathAndChars -> printFiles listOfFilePathAndChars
 
 -- /Tip:/ use @getArgs@ and @run@
