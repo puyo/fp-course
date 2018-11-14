@@ -88,11 +88,9 @@ printFile path contents =
 -- Given a list of (file name and file contents), print each.
 -- Use @printFile@.
 printFiles :: List (FilePath, Chars) -> IO ()
-printFiles files = foldRight folder (pure ()) files
+printFiles files = execIoNoResult printTuple files
   where
-    folder (path, chars) acc =
-      printFile path chars
-      >>= \_ -> acc
+    printTuple (path, chars) = printFile path chars
 
 -- Given a file name, return (file name and file contents).
 -- Use @readFile@.
@@ -102,10 +100,7 @@ getFile path = ((,) path) <$> readFile path
 -- Given a list of file names, return list of (file name and file contents).
 -- Use @getFile@.
 getFiles :: List FilePath -> IO (List (FilePath, Chars))
-getFiles paths = foldRight folder (pure Nil) paths
-  where
-    folder x acc = (getFile x) `fcons` acc
-    fcons = lift2 (:.)
+getFiles paths = execIo getFile paths
 
 -- Given a file name, read it and for each line in that file, read and print contents of each.
 -- Use @getFiles@ and @printFiles@.
@@ -117,11 +112,21 @@ run indexFilePath =
 
 -- /Tip:/ use @getArgs@ and @run@
 main :: IO ()
-main = getArgs >>= \ args -> run (headOr "" args)
+main =
+  getArgs
+  >>= \args -> execIoNoResult run args
 
-----
 
 -- Was there was some repetition in our solution?
 -- ? `sequence . (<$>)`
 -- ? `void . sequence . (<$>)`
 -- Factor it out.
+
+-- Run a bunch of (t -> IO ()) on a List (t), reduce to IO () result
+execIoNoResult :: (t -> IO ()) -> List t -> IO ()
+execIoNoResult f xs = void $ execIo f xs
+
+-- Run a bunch of (t -> IO (a)) on a List (t), reduce to IO (List a) result
+execIo :: (t -> IO (a)) -> List t -> IO (List a)
+execIo f xs = sequence $ f <$> xs
+
