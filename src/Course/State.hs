@@ -26,61 +26,42 @@ import qualified Data.Set as S
 -- A `State` is a function from a state value `s` to (a produced value `a`, and a resulting state `s`).
 newtype State s a =
   State {
-    runState ::
-      s
-      -> (a, s)
+    runState :: s -> (a, s)
   }
 
 -- | Run the `State` seeded with `s` and retrieve the resulting state.
 --
 -- prop> \(Fun _ f) s -> exec (State f) s == snd (runState (State f) s)
-exec ::
-  State s a
-  -> s
-  -> s
-exec =
-  error "todo: Course.State#exec"
+exec :: State s a -> s -> s
+exec state s = snd (runState state s)
 
 -- | Run the `State` seeded with `s` and retrieve the resulting value.
 --
 -- prop> \(Fun _ f) s -> eval (State f) s == fst (runState (State f) s)
-eval ::
-  State s a
-  -> s
-  -> a
-eval =
-  error "todo: Course.State#eval"
+eval :: State s a -> s -> a
+eval state s = fst (runState state s)
 
 -- | A `State` where the state also distributes into the produced value.
 --
 -- >>> runState get 0
 -- (0,0)
-get ::
-  State s s
-get =
-  error "todo: Course.State#get"
+get :: State s s
+get = State (\x -> (x, x))
 
 -- | A `State` where the resulting state is seeded with the given value.
 --
 -- >>> runState (put 1) 0
 -- ((),1)
-put ::
-  s
-  -> State s ()
-put =
-  error "todo: Course.State#put"
+put :: s -> State s ()
+put x = State (\_ -> ((), x))
 
 -- | Implement the `Functor` instance for `State s`.
 --
 -- >>> runState ((+1) <$> State (\s -> (9, s * 2))) 3
 -- (10,6)
 instance Functor (State s) where
-  (<$>) ::
-    (a -> b)
-    -> State s a
-    -> State s b
-  (<$>) =
-    error "todo: Course.State#(<$>)"
+  (<$>) :: (a -> b) -> State s a -> State s b
+  (<$>) f state = State (\x -> (f $ eval state x, exec state x))
 
 -- | Implement the `Applicative` instance for `State s`.
 --
@@ -94,17 +75,13 @@ instance Functor (State s) where
 -- >>> runState (State (\s -> ((+3), s P.++ ["apple"])) <*> State (\s -> (7, s P.++ ["banana"]))) []
 -- (10,["apple","banana"])
 instance Applicative (State s) where
-  pure ::
-    a
-    -> State s a
-  pure =
-    error "todo: Course.State pure#instance (State s)"
-  (<*>) ::
-    State s (a -> b)
-    -> State s a
-    -> State s b 
-  (<*>) =
-    error "todo: Course.State (<*>)#instance (State s)"
+  pure :: a -> State s a
+  pure x = State (\y -> (x, y))
+  (<*>) :: State s (a -> b) -> State s a -> State s b
+  (<*>) s1 s2 = State (\x -> (e1 x, e2 x))
+    where
+      e1 x = eval s1 x (eval s2 x)
+      e2 x = exec s2 (exec s1 x)
 
 -- | Implement the `Bind` instance for `State s`.
 --
@@ -114,12 +91,12 @@ instance Applicative (State s) where
 -- >>> let modify f = State (\s -> ((), f s)) in runState (modify (+1) >>= \() -> modify (*2)) 7
 -- ((),16)
 instance Monad (State s) where
-  (=<<) ::
-    (a -> State s b)
-    -> State s a
-    -> State s b
-  (=<<) =
-    error "todo: Course.State (=<<)#instance (State s)"
+  (=<<) :: (a -> State s b) -> State s a -> State s b
+  (=<<) f2 s1 = State (\x -> (e1 x, e2 x))
+    where
+      s2 x = f2 (eval s1 x) -- 2nd state to apply is a function of the first state's evaluation
+      e1 x = eval (s2 x) x
+      e2 x = exec (s2 x) (exec s1 x)
 
 -- | Find the first element in a `List` that satisfies a given predicate.
 -- It is possible that no element is found, hence an `Optional` result.
