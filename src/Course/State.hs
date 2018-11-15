@@ -13,6 +13,7 @@ import Course.Functor
 import Course.Applicative
 import Course.Monad
 import qualified Data.Set as S
+import Debug.Trace
 
 -- $setup
 -- >>> import Test.QuickCheck.Function
@@ -112,17 +113,26 @@ instance Monad (State s) where
 --
 -- >>> let p x = (\s -> (const $ pure (x == 'i')) =<< put (1+s)) =<< get in runState (findM p $ listh ['a'..'h']) 0
 -- (Empty,8)
-findM ::
-  Monad f =>
-  (a -> f Bool)
-  -> List a
-  -> f (Optional a)
-findM =
-  error "todo: Course.State#findM"
+-- findM :: Monad f => (a -> f Bool) -> List a -> f (Optional a)
+-- findM _ Nil = return Empty
+-- findM p (x :. xs) =
+--   p x
+--   >>= \b -> if b then Full x else findM p xs
+
+findM :: Monad f => (a -> f Bool) -> List a -> f (Optional a)
+findM p xs = foldRight (folder p) (pure Empty) xs
+
+folder :: Monad f => (a -> f Bool) -> a -> f (Optional a) -> f (Optional a)
+folder p x result = p x >>= \b -> bindIf x result b
+
+bindIf :: Monad f => a -> f (Optional a) -> Bool -> f (Optional a)
+bindIf _ result False = result
+bindIf x result True = pure (Full x)
+
 
 -- | Find the first element in a `List` that repeats.
 -- It is possible that no element repeats, hence an `Optional` result.
---
+
 -- /Tip:/ Use `findM` and `State` with a @Data.Set#Set@.
 --
 -- prop> \xs -> case firstRepeat xs of Empty -> let xs' = hlist xs in nub xs' == xs'; Full x -> length (filter (== x) xs) > 1
