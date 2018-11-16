@@ -14,6 +14,7 @@ import Course.Applicative
 import Course.Monad
 import qualified Data.Set as S
 import Debug.Trace
+import Data.Char
 
 -- $setup
 -- >>> import Test.QuickCheck.Function
@@ -113,6 +114,7 @@ instance Monad (State s) where
 --
 -- >>> let p x = (\s -> (const $ pure (x == 'i')) =<< put (1+s)) =<< get in runState (findM p $ listh ['a'..'h']) 0
 -- (Empty,8)
+--
 -- findM :: Monad f => (a -> f Bool) -> List a -> f (Optional a)
 -- findM _ Nil = return Empty
 -- findM p (x :. xs) =
@@ -120,15 +122,18 @@ instance Monad (State s) where
 --   >>= \b -> if b then Full x else findM p xs
 
 findM :: Monad f => (a -> f Bool) -> List a -> f (Optional a)
-findM p xs = foldRight (folder p) (pure Empty) xs
+findM p xs = foldRight folder (pure Empty) xs
+  where
+    folder x result = p x >>= \b -> if b then pure (Full x) else result
 
-folder :: Monad f => (a -> f Bool) -> a -> f (Optional a) -> f (Optional a)
-folder p x result = p x >>= \b -> bindIf x result b
-
-bindIf :: Monad f => a -> f (Optional a) -> Bool -> f (Optional a)
-bindIf _ result False = result
-bindIf x result True = pure (Full x)
-
+-- rewriting this...
+--
+-- let p x = (\s -> (const $ pure (x == 'c')) =<< put (1+s)) =<< get in runState (findM p $ listh ['a'..'h']) 0
+-- let p x = get >>= (\s -> (const $ pure (x == 'c')) =<< put (1+s)) in runState (findM p $ listh ['a'..'h']) 0
+-- let p x = get >>= \s -> put (1 + s) >>= \_ -> pure (x == 'c') in runState (findM p (listh ['a'..'h'])) 0
+--                    0         1 + 0       ()         False
+--                    1         1 + 1       ()         False
+--                    2         1 + 2       ()         True
 
 -- | Find the first element in a `List` that repeats.
 -- It is possible that no element repeats, hence an `Optional` result.
@@ -137,12 +142,34 @@ bindIf x result True = pure (Full x)
 --
 -- prop> \xs -> case firstRepeat xs of Empty -> let xs' = hlist xs in nub xs' == xs'; Full x -> length (filter (== x) xs) > 1
 -- prop> \xs -> case firstRepeat xs of Empty -> True; Full x -> let (l, (rx :. rs)) = span (/= x) xs in let (l2, r2) = span (/= x) rs in let l3 = hlist (l ++ (rx :. Nil) ++ l2) in nub l3 == l3
-firstRepeat ::
-  Ord a =>
-  List a
-  -> Optional a
-firstRepeat =
-  error "todo: Course.State#firstRepeat"
+--
+-- attempt 1: my misconception of what was being asked because I couldn't
+-- read the test cases
+--
+-- firstRepeat :: Ord a => List a -> Optional a
+-- firstRepeat Nil = Empty
+-- firstRepeat (_ :. Nil) = Empty
+-- firstRepeat (x1 :. (x2 :. xs))
+--   | x1 == x2 = Full x1
+--   | otherwise = firstRepeat (x2 :. xs)
+
+-- attempt 2: just doin' it my way, worked first time
+--
+firstRepeat :: Ord a => List a -> Optional a
+firstRepeat xs = firstRepeat1 xs S.empty
+  where
+    firstRepeat1 :: Ord a => List a -> S.Set a -> Optional a
+    firstRepeat1 Nil _ = Empty
+    firstRepeat1 (x :. rest) set
+      | S.member x set = Full x
+      | otherwise = firstRepeat1 rest (S.insert x set)
+
+-- attempt 3: using findM and a State... confusing :( can't make it work
+-- TODO: figure out why
+--
+-- firstRepeat :: Ord a => List a -> Optional a
+-- firstRepeat xs = eval (findM p xs) S.empty
+--   where p x = get >>= \set -> put (S.insert x set) >>= \_void -> pure (S.member x set)
 
 -- | Remove all duplicate elements in a `List`.
 -- /Tip:/ Use `filtering` and `State` with a @Data.Set#Set@.
@@ -150,16 +177,27 @@ firstRepeat =
 -- prop> \xs -> firstRepeat (distinct xs) == Empty
 --
 -- prop> \xs -> distinct xs == distinct (flatMap (\x -> x :. x :. Nil) xs)
-distinct ::
-  Ord a =>
-  List a
-  -> List a
-distinct =
-  error "todo: Course.State#distinct"
+--
+-- attempt 1: just doin' it my way, works fine
 
--- | A happy number is a positive integer, where the sum of the square of its digits eventually reaches 1 after repetition.
--- In contrast, a sad number (not a happy number) is where the sum of the square of its digits never reaches 1
--- because it results in a recurring sequence.
+distinct :: Ord a => List a -> List a
+distinct xs = distinct1 xs S.empty
+  where
+    distinct1 :: Ord a => List a -> S.Set a -> List a
+    distinct1 Nil _ = Nil
+    distinct1 (x :. rest) set
+      | S.member x set = distinct1 rest (S.insert x set)
+      | otherwise = x :. (distinct1 rest (S.insert x set))
+
+-- attempt 2: using filtering and State... I'll come back to this when
+-- I understand why my firstRepeat with findM and State doesn't work
+--
+-- TODO: attempt this
+
+-- A happy number is a positive integer, where the sum of the square of its
+-- digits eventually reaches 1 after repetition. In contrast, a sad number
+-- (not a happy number) is where the sum of the square of its digits never
+-- reaches 1 because it results in a recurring sequence.
 --
 -- /Tip:/ Use `firstRepeat` with `produce`.
 --
@@ -169,17 +207,41 @@ distinct =
 --
 -- >>> isHappy 4
 -- False
+-- 4 * 4 = 16, 1 + 6 = 7, 7 * 7 = 49, 4 + 9 = 13, 13 * 13 = 169, 1 + 6 + 9 = 16... loops
+-- 1 + 6 = 7
 --
 -- >>> isHappy 7
 -- True
 --
 -- >>> isHappy 42
 -- False
+-- 42 * 42 = 1764, 1 + 7 + 6 + 4 = 18, 18 * 18 = 324, 3 + 2 + 4 = 9, 9 * 9 = 81, loops
 --
 -- >>> isHappy 44
 -- True
-isHappy ::
-  Integer
-  -> Bool
-isHappy =
-  error "todo: Course.State#isHappy"
+isHappy :: Integer -> Bool
+isHappy n = isHappy1 n S.empty
+  where
+    isHappy1 :: Integer -> S.Set Integer -> Bool
+    isHappy1 1 _ = True
+    isHappy1 m set
+      | S.member m set = False
+      | otherwise = isHappy1 (sumOfSquareOfDigits m) (S.insert m set)
+
+    sumOfSquareOfDigits :: Integer -> Integer
+    sumOfSquareOfDigits m = sumIntegers (map square (digits m))
+
+    sumIntegers :: List Integer -> Integer
+    sumIntegers ms = foldRight (+) 0 ms
+
+    square :: Integer -> Integer
+    square m = m * m
+
+    digits :: Integer -> List Integer
+    digits m = map charToInteger (listh (show m))
+
+    charToInteger :: Char -> Integer
+    charToInteger = toInteger . Data.Char.digitToInt
+
+-- TODO: attempt this once I figure out how to use produce, join and Optional#conatins
+
