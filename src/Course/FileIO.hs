@@ -88,19 +88,21 @@ printFile path contents =
 -- Given a list of (file name and file contents), print each.
 -- Use @printFile@.
 printFiles :: List (FilePath, Chars) -> IO ()
-printFiles files = execIoNoResult printTuple files
+printFiles files = (void . sequence) (printTuple <$> files)
   where
     printTuple (path, chars) = printFile path chars
 
 -- Given a file name, return (file name and file contents).
 -- Use @readFile@.
 getFile :: FilePath -> IO (FilePath, Chars)
-getFile path = ((,) path) <$> readFile path
+getFile path =
+    readFile path
+    >>= \contents -> return (path, contents)
 
 -- Given a list of file names, return list of (file name and file contents).
 -- Use @getFile@.
 getFiles :: List FilePath -> IO (List (FilePath, Chars))
-getFiles paths = execIo getFile paths
+getFiles paths = sequence (getFile <$> paths)
 
 -- Given a file name, read it and for each line in that file, read and print contents of each.
 -- Use @getFiles@ and @printFiles@.
@@ -114,19 +116,11 @@ run indexFilePath =
 main :: IO ()
 main =
   getArgs
-  >>= \args -> execIoNoResult run args
-
+  >>= \args -> (void . sequence) (run <$> args)
 
 -- Was there was some repetition in our solution?
 -- ? `sequence . (<$>)`
 -- ? `void . sequence . (<$>)`
 -- Factor it out.
 
--- Run a bunch of (t -> IO ()) on a List (t), reduce to IO () result
-execIoNoResult :: (t -> IO ()) -> List t -> IO ()
-execIoNoResult f xs = void $ execIo f xs
-
--- Run a bunch of (t -> IO (a)) on a List (t), reduce to IO (List a) result
-execIo :: (t -> IO (a)) -> List t -> IO (List a)
-execIo f xs = sequence $ f <$> xs
-
+-- Removed non-idiomatic Haskell factoring out
