@@ -63,7 +63,14 @@ put x = State (\_ -> ((), x))
 -- (10,6)
 instance Functor (State s) where
   (<$>) :: (a -> b) -> State s a -> State s b
-  (<$>) f state = State (\x -> (f $ eval state x, exec state x))
+  f <$> state = State (\result1 ->
+                        let
+                          -- get x
+                          (x, result2) = runState state result1
+                        in
+                          -- call (f x) to produce a new value
+                          (f x, result2)
+                      )
 
 -- | Implement the `Applicative` instance for `State s`.
 --
@@ -80,10 +87,17 @@ instance Applicative (State s) where
   pure :: a -> State s a
   pure x = State (\y -> (x, y))
   (<*>) :: State s (a -> b) -> State s a -> State s b
-  (<*>) s1 s2 = State (\x -> (e1 x, e2 x))
-    where
-      e1 x = eval s1 x (eval s2 x)
-      e2 x = exec s2 (exec s1 x)
+  stateF <*> stateX = State (\result1 ->
+                              let
+                                -- get f from stateF
+                                (f, result2) = runState stateF result1
+
+                                -- get x from stateX
+                                (x, result3) = runState stateX result2
+                              in
+                                -- call (f x) to produce a new value
+                                (f x, result3)
+                            )
 
 -- | Implement the `Bind` instance for `State s`.
 --
@@ -106,7 +120,14 @@ instance Applicative (State s) where
 
 instance Monad (State s) where
   (=<<) :: (a -> State s b) -> State s a -> State s b
-  (=<<) f state1 = State $ \s -> let (val1, s1) = runState state1 s in runState (f val1) s1 -- just copied this from the Internet
+  (=<<) f state = State (\result1 ->
+                          let
+                            -- get x
+                            (x, result2) = runState state result1
+                          in
+                            -- call (f x) to produce a new state
+                            runState (f x) result2
+                        )
 
 -- | Find the first element in a `List` that satisfies a given predicate.
 -- It is possible that no element is found, hence an `Optional` result.
@@ -247,7 +268,7 @@ memberAndAddSetN x set = (S.member x set, S.insert x set)
 distinct :: Ord a => List a -> List a
 distinct xs = eval (filtering p xs) S.empty
   where
-    p x = State $ \set -> (S.member x set, S.insert x set)
+    p x = State $ \set -> (not $ S.member x set, S.insert x set)
 
 -- A happy number is a positive integer, where the sum of the square of its
 -- digits eventually reaches 1 after repetition. In contrast, a sad number
@@ -299,11 +320,15 @@ isHappy n = contains 1 $ firstRepeat (produce sumOfSquareOfDigits n)
   where
     sumOfSquareOfDigits :: Integer -> Integer
     sumOfSquareOfDigits m = sumIntegers (map square (digits m))
+
     sumIntegers :: List Integer -> Integer
-    sumIntegers ms = foldRight (+) 0 ms
+    sumIntegers = foldRight (+) 0
+
     square :: Integer -> Integer
     square = join (*)
+
     digits :: Integer -> List Integer
     digits m = map charToInteger (listh (show m))
+
     charToInteger :: Char -> Integer
     charToInteger = toInteger . Data.Char.digitToInt
