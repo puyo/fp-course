@@ -24,23 +24,23 @@ import qualified Prelude as P
 
 -- | A `StateT` is a function from a state value `s` to a functor f of (a produced value `a`, and a resulting state `s`).
 newtype StateT s f a =
-  StateT {
-    runStateT ::
-      s
-      -> f (a, s)
-  }
+  StateT { runStateT :: s -> f (a, s) }
 
 -- | Implement the `Functor` instance for @StateT s f@ given a @Functor f@.
 --
 -- >>> runStateT ((+1) <$> (pure 2) :: StateT Int List Int) 0
 -- [(3,0)]
 instance Functor f => Functor (StateT s f) where
-  (<$>) ::
-    (a -> b)
-    -> StateT s f a
-    -> StateT s f b
-  (<$>) =
-    error "todo: Course.StateT (<$>)#instance (StateT s f)"
+  (<$>) :: (a -> b) -> StateT s f a -> StateT s f b
+  (<$>) f state =
+    StateT (\result1 ->
+      let
+        fxTuple = runStateT state result1 -- :: f (a, s)
+        applyToFst (a, s) = (f a, s)
+      in
+        applyToFst <$> fxTuple
+    )
+
 
 -- | Implement the `Applicative` instance for @StateT s f@ given a @Monad f@.
 --
@@ -60,17 +60,21 @@ instance Functor f => Functor (StateT s f) where
 -- >>> runStateT (StateT (\s -> ((+2), s P.++ [1]) :. ((+3), s P.++ [1]) :. Nil) <*> (StateT (\s -> (2, s P.++ [2]) :. Nil))) [0]
 -- [(4,[0,1,2]),(5,[0,1,2])]
 instance Monad f => Applicative (StateT s f) where
-  pure ::
-    a
-    -> StateT s f a
-  pure =
-    error "todo: Course.StateT pure#instance (StateT s f)"
-  (<*>) ::
-   StateT s f (a -> b)
-    -> StateT s f a
-    -> StateT s f b
-  (<*>) =
-    error "todo: Course.StateT (<*>)#instance (StateT s f)"
+  pure :: a -> StateT s f a
+  pure x = StateT (\result1 -> pure (x, result1))
+  (<*>) :: StateT s f (a -> b) -> StateT s f a -> StateT s f b
+
+  (<*>) stateF stateX =
+    StateT (\result1 ->
+      runStateT stateF result1  -- :: f (a -> b, s)
+      >>= \(f, result2) ->      -- :: (a -> b, s)
+        let
+          fxTuple = runStateT stateX result2 -- :: f (a, s)
+          applyToFst (a, s) = (f a, s)
+        in
+          applyToFst <$> fxTuple
+    )
+
 
 -- | Implement the `Monad` instance for @StateT s f@ given a @Monad f@.
 -- Make sure the state value is passed through in `bind`.
