@@ -172,7 +172,7 @@ distinctF xs = evalT (filtering p xs) S.empty
   where
     p x
       | x > 100 = StateT $ \_ -> Empty
-      | otherwise = StateT $ \set -> pure (not $ S.member x set, S.insert x set)
+      | otherwise = StateT $ \set -> Full (not $ S.member x set, S.insert x set)
 
 -- | An `OptionalT` is a functor of an `Optional` value.
 data OptionalT f a =
