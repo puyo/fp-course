@@ -170,6 +170,7 @@ distinct' xs = eval' (filtering p xs) S.empty
 distinctF :: (Ord a, Num a) => List a -> Optional (List a)
 distinctF xs = evalT (filtering p xs) S.empty
   where
+    -- p :: a -> StateT (S.Set a) Optional Bool
     p x
       | x > 100 = StateT $ \_ -> Empty
       | otherwise = StateT $ \set -> Full (not $ S.member x set, S.insert x set)
@@ -323,12 +324,32 @@ log1 x = Logger (x :. Nil)
 --
 -- >>> distinctG $ listh [1,2,3,2,6,106]
 -- Logger ["even number: 2","even number: 2","even number: 6","aborting > 100: 106"] Empty
-distinctG ::
-  (Integral a, Show a) =>
-  List a
-  -> Logger Chars (Optional (List a))
-distinctG =
-  error "todo: Course.StateT#distinctG"
+distinctG :: (Integral a, Show a) => List a -> Logger Chars (Optional (List a))
+distinctG xs = runOptionalT $ evalT (filtering pred xs) S.empty
+  where
+    pred :: (Integral a, Show a) => a -> StateT (S.Set a) (OptionalT (Logger Chars)) Bool
+    pred x
+      | x > 100 =
+        StateT (\_set ->
+          OptionalT (Logger (messages "aborting > 100: " x) Empty)
+        )
+
+      | even x =
+        StateT (\set ->
+          OptionalT (Logger (messages "even number: " x) (nextState x set))
+        )
+
+      | otherwise =
+        StateT (\set ->
+          OptionalT (Logger Nil (nextState x set))
+        )
+
+    nextState :: Ord a => a -> S.Set a -> Optional (Bool, S.Set a)
+    nextState x set = Full (not $ S.member x set, S.insert x set)
+
+    messages :: Show a => [Char] -> a -> List Chars
+    messages prefix x = listh (prefix P.++ show x) :. Nil
+
 
 onFull :: Applicative f => (t -> f (Optional a)) -> Optional t -> f (Optional a)
 onFull g o =
