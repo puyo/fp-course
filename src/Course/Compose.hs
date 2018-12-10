@@ -35,15 +35,14 @@ instance (Applicative f, Applicative g) =>
   (<*>) :: Compose f g (a -> b) -> Compose f g a -> Compose f g b
   (<*>) (Compose f) (Compose x) =
     let
-      fmap = (<$>)                -- :: (a -> b) -> f a -> f b
-      apply = (<*>)               -- :: f (a -> b) -> f a -> f b
+      fmapF = (<$>)               -- :: (a -> b) -> f a -> f b
+      applyF = (<*>)              -- :: f (a -> b) -> f a -> f b
       fgab = f                    -- :: f (g (a -> b))
+      fmapApplyF = fmapF applyF   -- :: f (g (a -> b)) -> f (g a -> g b)
+      fga2gb = fmapApplyF fgab    -- :: f (g a -> g b)
 
-      fmapApply = fmap apply      -- :: f (g (a -> b)) -> f (g a -> g b)
-      fga2gb = fmapApply fgab     -- :: f (g a -> g b)
-
-      -- why can't this = (apply fga2gb)
-      fga2fgb = (fga2gb <*>)      -- :: f (g a) -> f (g b)
+      applyFG = (<*>)             -- :: f (g a -> g b) -> f (g a) -> f (g b)
+      fga2fgb = applyFG fga2gb    -- :: f (g a) -> f (g b)
       fgb = fga2fgb x             -- :: f (g b)
     in
       Compose fgb
