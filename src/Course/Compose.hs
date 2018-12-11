@@ -1,5 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Course.Compose where
 
@@ -33,17 +34,23 @@ instance (Applicative f, Applicative g) =>
 
   -- Implement the (<*>) function for an Applicative instance for Compose
   (<*>) :: Compose f g (a -> b) -> Compose f g a -> Compose f g b
-  (<*>) (Compose f) (Compose x) =
+  (<*>) (Compose a2bInFG) (Compose fga) =
     let
-      fmapF = (<$>)               -- :: (a -> b) -> f a -> f b
-      applyF = (<*>)              -- :: f (a -> b) -> f a -> f b
-      fgab = f                    -- :: f (g (a -> b))
-      fmapApplyF = fmapF applyF   -- :: f (g (a -> b)) -> f (g a -> g b)
-      fga2gb = fmapApplyF fgab    -- :: f (g a -> g b)
+      -- a2bInFG                   -- :: f (g (a -> b))
+      -- fga                       -- :: f (g a)
 
-      applyFG = (<*>)             -- :: f (g a -> g b) -> f (g a) -> f (g b)
-      fga2fgb = applyFG fga2gb    -- :: f (g a) -> f (g b)
-      fgb = fga2fgb x             -- :: f (g b)
+      liftF = lift1                -- :: (a -> b) -> f a -> f b
+
+      applyInG = (<*>)             -- ::    g (a -> b)  ->    g a -> g b
+
+      applyInFG = liftF applyInG   -- :: f (g (a -> b)) -> f (g a -> g b)
+
+      ga2gbInF = applyInFG a2bInFG -- ::                   f (g a -> g b)
+
+                                   -- :: f (a   -> b)   -> f a     -> f b
+      applyFG = (<*>)              -- :: f (g a -> g b) -> f (g a) -> f (g b)
+      fga2fgb = applyFG ga2gbInF   -- ::                   f (g a) -> f (g b)
+      fgb = fga2fgb fga            -- ::                              f (g b)
     in
       Compose fgb
 
