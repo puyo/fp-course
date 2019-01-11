@@ -286,6 +286,8 @@ sequence xs = foldRight (lift2 (:.)) (pure Nil) xs
 
 -- | Replicate an effect a given number of times.
 --
+-- /Tip:/ Use `Course.List#replicate`.
+--
 -- >>> replicateA 4 (ExactlyOne "hi")
 -- ExactlyOne ["hi","hi","hi","hi"]
 --
